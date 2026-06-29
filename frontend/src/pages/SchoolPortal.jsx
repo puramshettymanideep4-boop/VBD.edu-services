@@ -92,13 +92,15 @@ export const SchoolPortal = ({
   if (!currentSchoolPortal) return <ErrorScreen icon={<AlertCircle size={52} />} title="Unauthorized Access" message="No active school portal session detected. Please log in through a partner school portal link." />;
   if (currentSchoolPortal.status === 'deactivated') return <ErrorScreen icon={<AlertCircle size={52} />} title="Portal Suspended" message={`The portal for ${currentSchoolPortal.name} is currently deactivated. Please contact your school administration.`} />;
 
-  const userSchoolMismatched = user && user.role !== 'VBT_SUPER_ADMIN' && user.schoolId !== currentSchoolPortal.id;
-  if (userSchoolMismatched) return <ErrorScreen icon={<AlertCircle size={52} />} title="Security Violation" message={`Your account (${user.email}) does not have credentials to access the ${currentSchoolPortal.name} portal.`} />;
+
 
   const schoolProducts = products.filter(p => {
+    // FIXED: p.schoolId is now a plain string UUID (matches currentSchoolPortal.id).
+    // Previously schoolId was overwritten with a nested object, making this comparison
+    // always fail (object !== string).
     const matchSchool = p.schoolId === currentSchoolPortal.id;
     const matchCategory = selectedCategory === 'All' || p.category === selectedCategory;
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.description.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchSchool && matchCategory && matchSearch;
   });
 

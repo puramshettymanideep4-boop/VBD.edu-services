@@ -3,33 +3,36 @@ const asyncHandler = require('../utils/asyncHandler');
 
 // @desc    Get all products
 // @route   GET /api/products
-// @access  Public
+// @access  Public (auto-filtered when ?schoolId= is provided, or by session role)
 const getProducts = asyncHandler(async (req, res) => {
-  const { schoolId, category, search } = req.query;
+  const { schoolId: querySchoolId, category, search } = req.query;
+
   const query = {};
 
-  if (schoolId) query.schoolId = schoolId;
+  // The frontend always passes ?schoolId=<selectedSchool.id> for portal users.
+  // This supports dynamic school selection — no permanent user.schoolId dependency.
+  if (querySchoolId) {
+    query.schoolId = querySchoolId;
+  } else if (req.user && (req.user.role === 'PARENT' || req.user.role === 'STUDENT') && req.user.schoolId) {
+    // Fallback: if no schoolId param but user has a permanent schoolId, use it
+    query.schoolId = req.user.schoolId;
+  }
+
   if (category) query.category = category;
   if (search) query.name = { contains: search, mode: 'insensitive' };
 
   const products = await prisma.product.findMany({
     where: query,
     include: {
-      school: {
-        select: {
-          id: true,
-          name: true,
-          code: true
-        }
-      }
+      school: { select: { id: true, name: true, code: true } }
     }
   });
-  
-  // Add _id alias for frontend compatibility
+
   const formattedProducts = products.map(p => ({
     ...p,
     _id: p.id,
-    schoolId: p.school ? { _id: p.school.id, name: p.school.name, code: p.school.code } : null
+    schoolId: p.schoolId,   // plain string UUID
+    school: p.school || null,
   }));
 
   res.json({ success: true, count: formattedProducts.length, data: formattedProducts });
@@ -60,7 +63,8 @@ const getProductById = asyncHandler(async (req, res) => {
   const formattedProduct = {
     ...product,
     _id: product.id,
-    schoolId: product.school ? { _id: product.school.id, name: product.school.name, code: product.school.code } : null
+    schoolId: product.schoolId, // plain string
+    school: product.school || null
   };
 
   res.json({ success: true, data: formattedProduct });

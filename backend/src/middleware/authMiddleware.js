@@ -52,4 +52,38 @@ const protect = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { protect };
+// @desc  Optional auth — populates req.user if a valid token is present,
+//        but does NOT reject requests that have no token at all.
+//        Used for routes that are public but need user context when logged in.
+const optionalProtect = async (req, res, next) => {
+  try {
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer')
+    ) {
+      const token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          schoolId: true,
+          phone: true,
+          status: true,
+        },
+      });
+
+      if (user) req.user = user;
+    }
+  } catch (_err) {
+    // Invalid or expired token — treat as unauthenticated, do not block
+    req.user = null;
+  }
+  next();
+};
+
+module.exports = { protect, optionalProtect };

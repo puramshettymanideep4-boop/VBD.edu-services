@@ -4,145 +4,152 @@ import api from '../services/api';
 
 const AuthContext = createContext(undefined);
 
-export const AuthProvider = ({ children }) => {
-  const { schools, logNotification } = useDatabase();
-  const [user, setUser] = useState(null);
-  const [currentSchoolPortal, setCurrentSchoolPortal] = useState(null);
-  const [otpStore, setOtpStore] = useState({});
-  const [authLoading, setAuthLoading] = useState(true);
+// localStorage keys
+const TOKEN_KEY   = 'vbt_token';
+const SCHOOL_KEY  = 'vbt_selected_school';
+const CART_KEY    = 'vbt_cart';
 
-  // Restore session from backend using stored token
+export const AuthProvider = ({ children }) => {
+  const { schools, logNotification, refreshData } = useDatabase();
+  const [user, setUser]                         = useState(null);
+  const [currentSchoolPortal, setCurrentSchoolPortal] = useState(null);
+  const [otpStore, setOtpStore]                 = useState({});
+  const [authLoading, setAuthLoading]           = useState(true);
+
+  // ── Restore session on page load ──────────────────────────────────────────
   useEffect(() => {
-    const checkUser = async () => {
-      const token = localStorage.getItem('vbt_token');
+    const restore = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
       if (token) {
         try {
           const res = await api.get('/auth/me');
           if (res.data.success) {
             setUser(res.data.data);
-            if (res.data.data.schoolId) {
-              setCurrentSchoolPortal(res.data.data.schoolId);
-            }
           }
         } catch (e) {
-          console.error('Failed to restore auth session', e);
-          localStorage.removeItem('vbt_token');
+          console.error('Session restore failed', e);
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(SCHOOL_KEY);
         }
       }
+
+      // Restore selected school from localStorage (survives page refresh)
+      const savedSchool = localStorage.getItem(SCHOOL_KEY);
+      if (savedSchool) {
+        try {
+          setCurrentSchoolPortal(JSON.parse(savedSchool));
+        } catch {
+          localStorage.removeItem(SCHOOL_KEY);
+        }
+      }
+
       setAuthLoading(false);
     };
-    checkUser();
+    restore();
   }, []);
 
-  const saveSession = (u, token) => {
-    if (u && token) {
-      localStorage.setItem('vbt_token', token);
-      setUser(u);
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const persistSchool = (school) => {
+    if (school) {
+      localStorage.setItem(SCHOOL_KEY, JSON.stringify(school));
     } else {
-      localStorage.removeItem('vbt_token');
+      localStorage.removeItem(SCHOOL_KEY);
+    }
+    setCurrentSchoolPortal(school);
+  };
+
+  const saveSession = (userData, token) => {
+    if (userData && token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      setUser(userData);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(SCHOOL_KEY);
+      localStorage.removeItem(CART_KEY);
       setUser(null);
       setCurrentSchoolPortal(null);
     }
   };
 
-  const verifySchoolCode = (code) => {
-    const cleanedCode = code.trim().toUpperCase();
-    const found = schools.find(s => s.code.toUpperCase() === cleanedCode);
-    return found && found.status === 'active' ? found : null;
-  };
-
+  // ── Login ─────────────────────────────────────────────────────────────────
+  // The school code is validated dynamically by the backend against the DB.
+  // Any user with valid credentials can access any ACTIVE school by code.
+  // The returned `selectedSchool` is stored in state + localStorage — not on the user record.
   const login = async (email, password, schoolCode) => {
     try {
       const res = await api.post('/auth/login', { email, password, schoolCode });
       if (res.data.success) {
-        const authUser = res.data.data;
-        saveSession(authUser, authUser.token);
+        const { token, selectedSchool, ...userData } = res.data.data;
+        saveSession(userData, token);
 
-        if (authUser.school) {
-          setCurrentSchoolPortal(authUser.school);
+        if (selectedSchool) {
+          persistSchool(selectedSchool);
+          // Reload products filtered for the selected school
+          refreshData(selectedSchool.id);
         } else {
-          setCurrentSchoolPortal(null);
+          persistSchool(null);
         }
 
-        // Fire-and-forget — never let this block or break the login flow
-        logNotification('email', authUser.email, `New sign-in detected. Role: ${authUser.role}.`).catch(() => {});
-
-        return { success: true };
+        logNotification('email', userData.email, `Sign-in detected. Role: ${userData.role}.`).catch(() => {});
+        return { success: true, role: userData.role };
       }
       return { success: false, error: 'Authentication failed.' };
     } catch (err) {
-      return { success: false, error: err.response?.data?.message || 'Invalid credentials or server error.' };
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Invalid credentials or server error.';
+      return { success: false, error: msg };
     }
   };
 
-
-  const signup = async (name, email, role, schoolCode) => {
-    const school = verifySchoolCode(schoolCode);
-    if (!school && role !== 'SUPER_ADMIN') {
-      return { success: false, error: 'Invalid or inactive school code.' };
-    }
-
+  // ── Signup ────────────────────────────────────────────────────────────────
+  // No school code at signup — user chooses a school at login time.
+  const signup = async (name, email, password) => {
     try {
       const res = await api.post('/auth/register', {
-        name,
-        email,
-        password: 'password', // Default password per original mock logic
-        role,
-        schoolCode,
+        name, email, password, role: 'PARENT',
       });
-
       if (res.data.success) {
-        const newUser = res.data.data;
-        saveSession(newUser, newUser.token);
-        
-        if (school) {
-          setCurrentSchoolPortal(school);
-        }
-
-        logNotification('email', newUser.email, `Welcome to VBD! Your profile has been created successfully. Access Code: ${schoolCode}.`);
         return { success: true };
       }
+      return { success: false, error: 'Registration failed.' };
     } catch (err) {
       return { success: false, error: err.response?.data?.message || 'Signup failed.' };
     }
   };
 
-  const logout = () => {
-    saveSession(null, null);
+  // ── Logout ────────────────────────────────────────────────────────────────
+  const logout = () => saveSession(null, null);
+
+  // ── setPortalSchool (used by Navbar / homepage school selection) ──────────
+  const setPortalSchool = (school) => persistSchool(school);
+
+  // ── verifySchoolCode (local check against loaded schools list) ────────────
+  // Used for live feedback in the UI — the authoritative check is on the backend.
+  const verifySchoolCode = (code) => {
+    const cleaned = code.trim().toUpperCase();
+    const found = schools.find(s => s.code?.toUpperCase() === cleaned);
+    return found && (found.status === 'active' || found.status === 'ACTIVE') ? found : null;
   };
 
-  const setPortalSchool = (school) => {
-    setCurrentSchoolPortal(school);
-    if (user && user.role !== 'VBT_SUPER_ADMIN' && user.role !== 'SUPER_ADMIN') {
-      if (user.schoolId && user.schoolId._id !== school?.id) {
-        logout();
-      }
-    }
-  };
-
+  // ── OTP helpers ───────────────────────────────────────────────────────────
   const requestOtp = async (email) => {
     const cleanEmail = email.trim().toLowerCase();
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     setOtpStore(prev => ({ ...prev, [cleanEmail]: otp }));
-    logNotification('email', cleanEmail, `Verification Request: Your one-time login OTP is ${otp}. Valid for 5 minutes.`);
+    logNotification('email', cleanEmail, `Your OTP is ${otp}. Valid for 5 minutes.`);
     return { success: true, otpCode: otp };
   };
 
   const verifyOtp = async (email, otp) => {
     const cleanEmail = email.trim().toLowerCase();
     if (otpStore[cleanEmail] && otpStore[cleanEmail] === otp) {
-      setOtpStore(prev => {
-        const next = { ...prev };
-        delete next[cleanEmail];
-        return next;
-      });
+      setOtpStore(prev => { const n = { ...prev }; delete n[cleanEmail]; return n; });
       return { success: true };
     }
     return { success: false, error: 'Invalid OTP verification code.' };
   };
 
   const resetPassword = async (email) => {
-    logNotification('email', email.trim().toLowerCase(), 'Password reset request received. A password reset link has been dispatched to your email.');
+    logNotification('email', email.trim().toLowerCase(), 'Password reset request received.');
     return { success: true };
   };
 
@@ -159,7 +166,7 @@ export const AuthProvider = ({ children }) => {
       verifySchoolCode,
       requestOtp,
       verifyOtp,
-      resetPassword
+      resetPassword,
     }}>
       {children}
     </AuthContext.Provider>

@@ -1,32 +1,91 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { KeyRound, School as SchoolIcon, ShieldCheck, ArrowLeft, RefreshCw, Send, GraduationCap } from 'lucide-react';
+import {
+  KeyRound, ArrowLeft, ShieldCheck, RefreshCw,
+  GraduationCap, Eye, EyeOff, UserCircle2,
+} from 'lucide-react';
+
+/* ─────────────────────────────────────────────────────────────────────────
+   VBD Auth Page  —  dark premium theme (glass card on dark bg)
+   Fields:
+     Login  : Username (email), Password, School Code, Forgot Password
+     Signup : Username, Email, Create Password, Confirm Password
+     Forgot : Email → OTP
+───────────────────────────────────────────────────────────────────────── */
+
+/* Password input with show / hide toggle — uses dark form-control style */
+const PasswordInput = ({ id, value, onChange, placeholder = '••••••••', required = true }) => {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        id={id}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="form-control"
+        style={{ paddingRight: '44px' }}
+        required={required}
+        autoComplete="current-password"
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow(v => !v)}
+        style={{
+          position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--text-muted)', padding: '4px', display: 'flex', alignItems: 'center',
+        }}
+      >
+        {show ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
+    </div>
+  );
+};
 
 const AuthPage = ({ onNavigate }) => {
-  const { login, signup, currentSchoolPortal, setPortalSchool, verifySchoolCode, requestOtp, verifyOtp, resetPassword } = useAuth();
+  const {
+    login, signup,
+    verifySchoolCode, setPortalSchool,
+    requestOtp, verifyOtp, resetPassword,
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState('login');
-  const [role, setRole] = useState('PARENT');
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [schoolCode, setSchoolCode] = useState('');
+  /* Login fields */
+  const [loginEmail, setLoginEmail]       = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginCode, setLoginCode]         = useState('');
 
-  const [otpStep, setOtpStep] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [simulatedOtpSent, setSimulatedOtpSent] = useState(null);
+  /* Signup fields */
+  const [signupName, setSignupName]         = useState('');
+  const [signupEmail, setSignupEmail]       = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupConfirm, setSignupConfirm]   = useState('');
 
-  const [uiError, setUiError] = useState('');
+  /* Forgot / OTP fields */
+  const [resetEmail, setResetEmail]         = useState('');
+  const [otpStep, setOtpStep]               = useState(false);
+  const [otpCode, setOtpCode]               = useState('');
+  const [simulatedOtp, setSimulatedOtp]     = useState(null);
+
+  /* UI */
+  const [uiError, setUiError]     = useState('');
   const [uiMessage, setUiMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]     = useState(false);
 
-  const handleSchoolCodeBlur = () => {
-    if (schoolCode.trim()) {
-      const match = verifySchoolCode(schoolCode);
+  const clearMsg  = () => { setUiError(''); setUiMessage(''); };
+  const switchTab = (tab) => { setActiveTab(tab); clearMsg(); setOtpStep(false); };
+
+  /* ── School code blur — pre-verify for login ── */
+  const handleCodeBlur = () => {
+    if (loginCode.trim()) {
+      const match = verifySchoolCode(loginCode);
       if (match) {
         setPortalSchool(match);
-        setUiError('');
+        clearMsg();
       } else {
         setUiError('Invalid or inactive School Code. Verify with your school board.');
         setPortalSchool(null);
@@ -34,125 +93,130 @@ const AuthPage = ({ onNavigate }) => {
     }
   };
 
-  const handleLoginSubmit = async (e) => {
+  /* ── LOGIN ── */
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setUiError(''); setUiMessage('');
-    if (!email || !password) { setUiError('Email and Password are required.'); return; }
-    const isSuper = email.trim().toLowerCase() === 'superadmin@vbt.com' || email.trim().toLowerCase() === 'superadmin@vbd.com';
-    if (!isSuper && !schoolCode.trim()) { setUiError('School Access Code is required.'); return; }
+    clearMsg();
+    if (!loginEmail || !loginPassword) {
+      setUiError('Username and Password are required.');
+      return;
+    }
+    const codeToUse = loginCode.trim() || undefined;
     setLoading(true);
     try {
-      const codeToUse = isSuper ? undefined : schoolCode;
-      const res = await login(email, password, codeToUse);
+      const res = await login(loginEmail, loginPassword, codeToUse);
       if (res.success) {
-        if (isSuper) onNavigate('admin-dashboard');
-        else onNavigate('school-portal');
-      } else {
-        setUiError(res.error || 'Authentication failed. Please verify credentials.');
-      }
-    } catch { setUiError('System error during validation.'); }
-    finally { setLoading(false); }
-  };
-
-  const handleRequestOtp = async () => {
-    setUiError(''); setUiMessage('');
-    if (!email) { setUiError('Please enter your email to request an OTP.'); return; }
-    setLoading(true);
-    try {
-      const res = await requestOtp(email);
-      if (res.success) {
-        setOtpStep(true);
-        setSimulatedOtpSent(res.otpCode || null);
-        setUiMessage('A one-time OTP code has been dispatched. Enter it below.');
-      } else {
-        setUiError(res.error || 'Failed to send OTP.');
-      }
-    } catch { setUiError('Error sending OTP.'); }
-    finally { setLoading(false); }
-  };
-
-  const handleVerifyOtpSubmit = async (e) => {
-    e.preventDefault();
-    setUiError(''); setUiMessage('');
-    if (!otpCode) { setUiError('Enter verification code.'); return; }
-    setLoading(true);
-    try {
-      const res = await verifyOtp(email, otpCode);
-      if (res.success) {
-        if (activeTab === 'signup') {
-          const signupRes = await signup(name, email, role, schoolCode);
-          if (signupRes.success) onNavigate('school-portal');
-          else { setUiError(signupRes.error || 'Signup failed.'); setOtpStep(false); }
+        if (res.role === 'VBT_SUPER_ADMIN' || res.role === 'SUPER_ADMIN') {
+          onNavigate('admin-dashboard');
         } else {
-          setUiMessage('Verification complete. Your password has been reset to "password". You can now log in.');
-          setActiveTab('login'); setPassword('password'); setOtpStep(false);
+          onNavigate('school-portal');
         }
       } else {
-        setUiError(res.error || 'Verification code does not match.');
+        setUiError(res.error || 'Authentication failed. Please verify your credentials.');
       }
-    } catch { setUiError('System verification error.'); }
+    } catch { setUiError('System error. Please try again.'); }
     finally { setLoading(false); }
   };
 
-  const handleSignupSubmit = async (e) => {
+  /* ── SIGNUP ── */
+  const handleSignup = async (e) => {
     e.preventDefault();
-    setUiError(''); setUiMessage('');
-    if (!name || !email || !schoolCode) { setUiError('All fields are required.'); return; }
-    const school = verifySchoolCode(schoolCode);
-    if (!school) { setUiError('Provide a valid School Code to register.'); return; }
-    handleRequestOtp();
-  };
-
-  const handleResetSubmit = async (e) => {
-    e.preventDefault();
-    setUiError(''); setUiMessage('');
-    if (!email) { setUiError('Enter your email to request recovery.'); return; }
+    clearMsg();
+    if (!signupName || !signupEmail || !signupPassword || !signupConfirm) {
+      setUiError('All fields are required.');
+      return;
+    }
+    if (signupPassword.length < 6) {
+      setUiError('Password must be at least 6 characters.');
+      return;
+    }
+    if (signupPassword !== signupConfirm) {
+      setUiError('Passwords do not match. Please re-enter.');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await resetPassword(email);
-      if (res.success) handleRequestOtp();
-    } catch { setUiError('Password recovery request failed.'); }
+      const res = await signup(signupName, signupEmail, signupPassword);
+      if (res && res.success) {
+        setUiMessage('Account created! Please go to Login and enter your School Code to access your portal.');
+        // Switch to login tab after a short delay
+        setTimeout(() => switchTab('login'), 2200);
+      } else {
+        setUiError(res?.error || 'Registration failed. Please try again.');
+      }
+    } catch { setUiError('System error. Please try again.'); }
     finally { setLoading(false); }
   };
 
-  // Shared input style
-  const inputStyle = {
-    width: '100%', padding: '13px 16px', borderRadius: '8px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    color: 'var(--text-primary)', fontSize: '0.95rem',
-    fontFamily: 'var(--font-body)', outline: 'none',
-    transition: 'all 0.3s ease',
+  /* ── FORGOT — send OTP ── */
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    clearMsg();
+    if (!resetEmail) { setUiError('Enter your registered email address.'); return; }
+    setLoading(true);
+    try {
+      await resetPassword(resetEmail);
+      const res = await requestOtp(resetEmail);
+      if (res.success) {
+        setOtpStep(true);
+        setSimulatedOtp(res.otpCode || null);
+        setUiMessage('A one-time code has been sent to your email.');
+      } else {
+        setUiError('Failed to send OTP. Please try again.');
+      }
+    } catch { setUiError('System error. Please try again.'); }
+    finally { setLoading(false); }
   };
 
-  const RoleBtn = ({ value, label }) => (
-    <button
-      type="button"
-      onClick={() => setRole(value)}
+  /* ── FORGOT — verify OTP ── */
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    clearMsg();
+    if (!otpCode) { setUiError('Enter your OTP code.'); return; }
+    setLoading(true);
+    try {
+      const res = await verifyOtp(resetEmail, otpCode);
+      if (res.success) {
+        setUiMessage('Verified! Your password has been reset to "password". You can now log in.');
+        setOtpStep(false);
+        setTimeout(() => switchTab('login'), 2400);
+      } else {
+        setUiError(res.error || 'Invalid OTP. Please try again.');
+      }
+    } catch { setUiError('Verification error. Please try again.'); }
+    finally { setLoading(false); }
+  };
+
+  /* ── Shared tab pill component ── */
+  const TabPill = ({ tabKey, label }) => (
+    <div
+      onClick={() => switchTab(tabKey)}
       style={{
-        flex: 1, padding: '10px 8px',
-        background: role === value ? 'rgba(200,169,110,0.1)' : 'transparent',
-        border: `1px solid ${role === value ? 'rgba(200,169,110,0.5)' : 'rgba(255,255,255,0.08)'}`,
-        borderRadius: '8px',
-        color: role === value ? 'var(--accent-primary)' : 'var(--text-muted)',
-        fontSize: '0.82rem', fontWeight: 600,
-        transition: 'all 0.3s ease', cursor: 'pointer',
+        flex: 1, padding: '11px', textAlign: 'center',
+        fontSize: '0.88rem', fontWeight: 600, borderRadius: '8px',
+        cursor: 'pointer', transition: 'all 0.3s ease',
+        background: activeTab === tabKey ? 'var(--accent-primary)' : 'transparent',
+        color: activeTab === tabKey ? '#0A0A0F' : 'var(--text-muted)',
+        userSelect: 'none',
       }}
     >
       {label}
-    </button>
+    </div>
   );
 
+  /* ══════════════════════════════════════════════════════════════════ */
   return (
     <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      minHeight: '100vh',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '100px 24px 60px',
       position: 'relative',
     }}>
-      {/* Background layers */}
+
+      {/* Dark radial background — same as rest of app */}
       <div className="bg-radial" />
 
-      {/* Card */}
+      {/* ── Glass Card ── */}
       <div style={{
         width: '100%', maxWidth: '500px',
         background: 'rgba(19,19,31,0.85)',
@@ -165,7 +229,8 @@ const AuthPage = ({ onNavigate }) => {
         animation: 'fadeIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards',
         position: 'relative', zIndex: 1,
       }}>
-        {/* Back link */}
+
+        {/* Back to Home */}
         <span
           onClick={() => onNavigate('home')}
           style={{
@@ -180,48 +245,38 @@ const AuthPage = ({ onNavigate }) => {
           Main Homepage
         </span>
 
-        {/* Header */}
+        {/* ── HEADER ── */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          {/* Logo icon */}
+          {/* Logo badge */}
           <div style={{
             width: '52px', height: '52px', borderRadius: '16px',
-            background: 'linear-gradient(135deg, rgba(200,169,110,0.15), rgba(200,169,110,0.05))',
+            background: 'linear-gradient(135deg,rgba(200,169,110,0.15),rgba(200,169,110,0.05))',
             border: '1px solid rgba(200,169,110,0.25)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'var(--accent-primary)',
             margin: '0 auto 16px',
             boxShadow: '0 0 20px rgba(200,169,110,0.1)',
           }}>
-            <GraduationCap size={26} />
+            {activeTab === 'signup' ? <UserCircle2 size={26} /> : <GraduationCap size={26} />}
           </div>
 
           <h2 style={{
             fontFamily: 'var(--font-heading)', fontSize: '1.75rem', fontWeight: 400,
             color: 'var(--text-primary)', marginBottom: '8px',
           }}>
-            {activeTab === 'login' ? 'Secure School Portal' : activeTab === 'signup' ? 'Register Account' : 'Recover Password'}
+            {activeTab === 'login'  && 'Welcome Back'}
+            {activeTab === 'signup' && 'Create Account'}
+            {activeTab === 'forgot' && 'Recover Access'}
           </h2>
 
-          {currentSchoolPortal ? (
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: 'rgba(200,169,110,0.08)',
-              border: '1px solid rgba(200,169,110,0.25)',
-              color: 'var(--accent-primary)',
-              padding: '6px 16px', borderRadius: '30px', fontSize: '0.85rem', fontWeight: 600,
-              marginTop: '8px',
-            }}>
-              <SchoolIcon size={13} />
-              {currentSchoolPortal.name}
-            </div>
-          ) : (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-              Enter a valid School Code to target your school's data node.
-            </p>
-          )}
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
+            {activeTab === 'login'  && 'Login to access your school portal.'}
+            {activeTab === 'signup' && 'Register a new VBD profile.'}
+            {activeTab === 'forgot' && 'Reset your password via email OTP.'}
+          </p>
         </div>
 
-        {/* Alert messages */}
+        {/* ── ALERTS ── */}
         {uiError && (
           <div style={{
             padding: '12px 16px', borderRadius: '8px',
@@ -243,191 +298,247 @@ const AuthPage = ({ onNavigate }) => {
           </div>
         )}
 
-        {/* OTP Step */}
-        {otpStep ? (
-          <form onSubmit={handleVerifyOtpSubmit}>
-            {simulatedOtpSent && (
-              <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(200,169,110,0.4)',
-                padding: '12px', borderRadius: '8px', fontSize: '0.8rem', textAlign: 'center',
-                color: 'var(--accent-primary)', marginBottom: '20px',
-              }}>
-                [SIMULATION DESK] Your OTP is: <strong>{simulatedOtpSent}</strong>
-              </div>
-            )}
-            <div className="form-group">
-              <label className="form-label">Enter 6-Digit OTP Code *</label>
-              <input
-                type="text" maxLength={6}
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="1 2 3 4 5 6"
-                className="form-control"
-                style={{ textAlign: 'center', fontSize: '1.4rem', letterSpacing: '0.4em' }}
-                required
-              />
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', justifyContent: 'center' }} disabled={loading}>
-              <ShieldCheck size={16} />
-              Verify & Complete Access
-            </button>
-            <span onClick={handleRequestOtp} style={{
-              display: 'block', textAlign: 'center', marginTop: '16px',
-              fontSize: '0.82rem', color: 'var(--accent-primary)', cursor: 'pointer',
-              transition: 'opacity 0.2s',
-            }}>
-              Resend OTP
-            </span>
-          </form>
-        ) : (
+        {/* ═══════════════ FORGOT PASSWORD VIEW ═══════════════ */}
+        {activeTab === 'forgot' ? (
           <>
-            {/* Tab pills */}
-            {activeTab !== 'reset' && (
-              <div style={{
-                display: 'flex', background: 'rgba(0,0,0,0.25)', borderRadius: '10px',
-                padding: '4px', marginBottom: '24px',
-                border: '1px solid rgba(255,255,255,0.06)',
-              }}>
-                {[
-                  { key: 'login', label: 'Portal Login' },
-                  { key: 'signup', label: 'Parent/Student Signup' },
-                ].map(tab => (
-                  <div
-                    key={tab.key}
-                    onClick={() => { setActiveTab(tab.key); setUiError(''); setUiMessage(''); }}
-                    style={{
-                      flex: 1, padding: '11px', textAlign: 'center',
-                      fontSize: '0.88rem', fontWeight: 600, borderRadius: '8px',
-                      cursor: 'pointer', transition: 'all 0.3s ease',
-                      background: activeTab === tab.key ? 'var(--accent-primary)' : 'transparent',
-                      color: activeTab === tab.key ? '#0A0A0F' : 'var(--text-muted)',
-                    }}
-                  >
-                    {tab.label}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* LOGIN FORM */}
-            {activeTab === 'login' && (
-              <form onSubmit={handleLoginSubmit}>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
-                  <RoleBtn value="PARENT" label="Parent" />
-                  <RoleBtn value="STUDENT" label="Student" />
-                  <RoleBtn value="SCHOOL_ADMIN" label="School Admin" />
-                </div>
-
+            {!otpStep ? (
+              <form onSubmit={handleSendOtp}>
                 <div className="form-group">
-                  <label className="form-label">School Access Code</label>
+                  <label className="form-label">Email Address</label>
                   <input
-                    type="text" value={schoolCode}
-                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                    onBlur={handleSchoolCodeBlur}
-                    placeholder="Enter your school code"
-                    className="form-control" style={{ textTransform: 'uppercase' }}
-                    autoComplete="off" autoCorrect="off" spellCheck={false}
-                  />
-                  {email.trim().toLowerCase() === 'superadmin@vbt.com' && (
-                    <span style={{ fontSize: '0.74rem', color: 'var(--accent-primary)', display: 'block', marginTop: '4px' }}>
-                      Super Admin login — school code not required.
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Registered Email Address *</label>
-                  <input
-                    type="email" value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="parent@school.edu"
+                    type="email" value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                    placeholder="your@email.com"
                     className="form-control" required
                   />
                 </div>
 
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <label className="form-label" style={{ margin: 0 }}>Password *</label>
-                    <span
-                      onClick={() => { setActiveTab('reset'); setUiError(''); setUiMessage(''); }}
-                      style={{ fontSize: '0.76rem', color: 'var(--accent-primary)', cursor: 'pointer' }}
-                    >
-                      Forgot?
-                    </span>
-                  </div>
-                  <input
-                    type="password" value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="form-control" required
-                  />
-                </div>
-
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', justifyContent: 'center' }} disabled={loading}>
-                  <KeyRound size={16} />
-                  {loading ? 'Authorizing Portal…' : 'Access Portal'}
-                </button>
-              </form>
-            )}
-
-            {/* SIGNUP FORM */}
-            {activeTab === 'signup' && (
-              <form onSubmit={handleSignupSubmit}>
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
-                  <RoleBtn value="PARENT" label="Parent" />
-                  <RoleBtn value="STUDENT" label="Student" />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Parent / Student Full Name *</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Srinivas Kumar" className="form-control" required />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">School Onboarding Code *</label>
-                  <input
-                    type="text" value={schoolCode}
-                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                    onBlur={handleSchoolCodeBlur}
-                    placeholder="Enter your school code"
-                    className="form-control" style={{ textTransform: 'uppercase' }}
-                    autoComplete="off" autoCorrect="off" spellCheck={false} required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Email Address *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="parent@kakatiya.edu" className="form-control" required />
-                </div>
-
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', justifyContent: 'center' }} disabled={loading}>
-                  <Send size={16} />
-                  {loading ? 'Transmitting Request…' : 'Verify Email via OTP'}
-                </button>
-              </form>
-            )}
-
-            {/* RESET FORM */}
-            {activeTab === 'reset' && (
-              <form onSubmit={handleResetSubmit}>
-                <div className="form-group">
-                  <label className="form-label">Enter Registered Email *</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="parent@kakatiya.edu" className="form-control" required />
-                </div>
-
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '14px', justifyContent: 'center' }} disabled={loading}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', justifyContent: 'center' }}
+                  disabled={loading}
+                >
                   <RefreshCw size={14} />
-                  Verify Email
+                  {loading ? 'Sending OTP…' : 'Send OTP Code'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp}>
+                {simulatedOtp && (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(200,169,110,0.4)',
+                    padding: '12px', borderRadius: '8px', fontSize: '0.8rem', textAlign: 'center',
+                    color: 'var(--accent-primary)', marginBottom: '20px',
+                  }}>
+                    [DEMO] Your OTP is: <strong style={{ letterSpacing: '0.2em' }}>{simulatedOtp}</strong>
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Enter 6-Digit OTP</label>
+                  <input
+                    type="text" maxLength={6}
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="1 2 3 4 5 6"
+                    className="form-control"
+                    style={{ textAlign: 'center', fontSize: '1.4rem', letterSpacing: '0.4em' }}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', justifyContent: 'center' }}
+                  disabled={loading}
+                >
+                  <ShieldCheck size={16} />
+                  {loading ? 'Verifying…' : 'Verify & Reset Password'}
                 </button>
 
                 <span
-                  onClick={() => { setActiveTab('login'); setUiError(''); setUiMessage(''); }}
-                  style={{ display: 'block', textAlign: 'center', marginTop: '16px', fontSize: '0.82rem', color: 'var(--text-muted)', cursor: 'pointer', transition: 'color 0.2s' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                  onClick={handleSendOtp}
+                  style={{
+                    display: 'block', textAlign: 'center', marginTop: '14px',
+                    fontSize: '0.82rem', color: 'var(--accent-primary)',
+                    cursor: 'pointer', transition: 'opacity 0.2s',
+                  }}
                 >
-                  Back to Login
+                  Resend OTP
                 </span>
+              </form>
+            )}
+
+            <span
+              onClick={() => switchTab('login')}
+              style={{
+                display: 'block', textAlign: 'center', marginTop: '18px',
+                fontSize: '0.82rem', color: 'var(--text-muted)', cursor: 'pointer',
+                transition: 'color 0.2s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              ← Back to Login
+            </span>
+          </>
+        ) : (
+          <>
+            {/* ── Tab pills: Login / Sign Up ── */}
+            <div style={{
+              display: 'flex', background: 'rgba(0,0,0,0.25)', borderRadius: '10px',
+              padding: '4px', marginBottom: '28px',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <TabPill tabKey="login"  label="Login" />
+              <TabPill tabKey="signup" label="Sign Up" />
+            </div>
+
+            {/* ═══════════════ LOGIN FORM ═══════════════ */}
+            {activeTab === 'login' && (
+              <form onSubmit={handleLogin}>
+
+                {/* Username / Email */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="login-email">Username</label>
+                  <input
+                    id="login-email"
+                    type="text" value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="Email or username"
+                    className="form-control" required
+                    autoComplete="username"
+                  />
+                </div>
+
+                {/* Password */}
+                <div className="form-group">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="form-label" htmlFor="login-password" style={{ margin: 0 }}>Password</label>
+                    <span
+                      onClick={() => switchTab('forgot')}
+                      style={{ fontSize: '0.76rem', color: 'var(--accent-primary)', cursor: 'pointer' }}
+                    >
+                      Forgot Password?
+                    </span>
+                  </div>
+                  <PasswordInput
+                    id="login-password"
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                  />
+                </div>
+
+                {/* School Code */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="login-code">School Code</label>
+                  <input
+                    id="login-code"
+                    type="text" value={loginCode}
+                    onChange={e => setLoginCode(e.target.value.toUpperCase())}
+                    onBlur={handleCodeBlur}
+                    placeholder="e.g. KAKATIYA123 (leave blank for admin)"
+                    className="form-control"
+                    style={{ textTransform: 'uppercase' }}
+                    autoComplete="off" autoCorrect="off" spellCheck={false}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', justifyContent: 'center' }}
+                  disabled={loading}
+                >
+                  <KeyRound size={16} />
+                  {loading ? 'Authorizing…' : 'Access Portal'}
+                </button>
+
+                <p style={{ textAlign: 'center', marginTop: '18px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+                  No account?{' '}
+                  <span
+                    onClick={() => switchTab('signup')}
+                    style={{ color: 'var(--accent-primary)', cursor: 'pointer' }}
+                  >
+                    Sign up
+                  </span>
+                </p>
+              </form>
+            )}
+
+            {/* ═══════════════ SIGNUP FORM ═══════════════ */}
+            {activeTab === 'signup' && (
+              <form onSubmit={handleSignup}>
+
+                {/* Username */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-name">Username</label>
+                  <input
+                    id="signup-name"
+                    type="text" value={signupName}
+                    onChange={e => setSignupName(e.target.value)}
+                    placeholder="Your full name"
+                    className="form-control" required
+                    autoComplete="name"
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-email">Email</label>
+                  <input
+                    id="signup-email"
+                    type="email" value={signupEmail}
+                    onChange={e => setSignupEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="form-control" required
+                    autoComplete="email"
+                  />
+                </div>
+
+                {/* Create Password */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-password">Create Password</label>
+                  <PasswordInput
+                    id="signup-password"
+                    value={signupPassword}
+                    onChange={e => setSignupPassword(e.target.value)}
+                    placeholder="Min. 6 characters"
+                  />
+                </div>
+
+                {/* Confirm Password */}
+                <div className="form-group">
+                  <label className="form-label" htmlFor="signup-confirm">Confirm Password</label>
+                  <PasswordInput
+                    id="signup-confirm"
+                    value={signupConfirm}
+                    onChange={e => setSignupConfirm(e.target.value)}
+                    placeholder="Repeat your password"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '14px', justifyContent: 'center' }}
+                  disabled={loading}
+                >
+                  <UserCircle2 size={16} />
+                  {loading ? 'Creating Account…' : 'Create Account'}
+                </button>
+
+                <p style={{ textAlign: 'center', marginTop: '18px', fontSize: '0.83rem', color: 'var(--text-muted)' }}>
+                  Already registered?{' '}
+                  <span
+                    onClick={() => switchTab('login')}
+                    style={{ color: 'var(--accent-primary)', cursor: 'pointer' }}
+                  >
+                    Login
+                  </span>
+                </p>
               </form>
             )}
           </>

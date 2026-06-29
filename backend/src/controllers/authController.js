@@ -13,28 +13,14 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 // @access  Public
 const register = asyncHandler(async (req, res) => {
-  const { name, email, password, role, schoolCode, phone } = req.body;
+  const { name, email, password, role, phone } = req.body;
 
-  // Check if user exists
   const userExists = await prisma.user.findUnique({ where: { email } });
   if (userExists) {
     res.status(400);
     throw new Error('User already exists');
   }
 
-  let schoolId = null;
-
-  // Validate school code if provided
-  if (schoolCode && role !== 'SUPER_ADMIN' && role !== 'VBT_SUPER_ADMIN') {
-    const school = await prisma.school.findUnique({ where: { code: schoolCode.toUpperCase() } });
-    if (!school) {
-      res.status(400);
-      throw new Error('Invalid school code');
-    }
-    schoolId = school.id;
-  }
-
-  // Hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -44,8 +30,8 @@ const register = asyncHandler(async (req, res) => {
       email,
       password: hashedPassword,
       role: role || 'PARENT',
-      schoolId,
       phone,
+      // schoolId intentionally omitted — linked at first login via school code
     },
   });
 
@@ -53,12 +39,11 @@ const register = asyncHandler(async (req, res) => {
     res.status(201).json({
       success: true,
       data: {
-        _id: user.id, // Keeping _id for frontend compatibility
+        _id: user.id,
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-        schoolId: user.schoolId,
         token: generateToken(user.id),
       },
     });
@@ -71,11 +56,22 @@ const register = asyncHandler(async (req, res) => {
 // @desc    Authenticate a user
 // @route   POST /api/auth/login
 // @access  Public
+//
+// School code is validated dynamically against the School table — NO hardcoding.
+// The selected school is returned as `selectedSchool` in the response.
+// This allows ANY user to enter ANY active school portal simply by providing
+// the correct school code — the user is NOT permanently locked to one school.
 const login = asyncHandler(async (req, res) => {
-  const { email, password, schoolCode } = req.body;
+  const { email: identifier, password, schoolCode } = req.body;
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  // 1. Find user (check both email and name columns dynamically to support Username/Email login)
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: { equals: identifier, mode: 'insensitive' } },
+        { name: { equals: identifier, mode: 'insensitive' } },
+      ],
+    },
     include: { school: true },
   });
 
@@ -85,36 +81,63 @@ const login = asyncHandler(async (req, res) => {
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
-
   if (!isMatch) {
     res.status(401);
     throw new Error('Invalid credentials');
   }
 
-  // Cross-check school code for non-super-admins
-  if (user.role !== 'VBT_SUPER_ADMIN' && user.role !== 'SUPER_ADMIN') {
-    if (!schoolCode) {
-      res.status(400);
-      throw new Error('School Access Code is required');
-    }
-    
-    const userSchoolCode = user.school ? user.school.code : null;
-    
-    if (schoolCode.toUpperCase() !== userSchoolCode) {
-      res.status(401);
-      throw new Error('Invalid School Access Code for this account');
-    }
+  // 2. Super admins bypass school code requirement
+  if (user.role === 'VBT_SUPER_ADMIN' || user.role === 'SUPER_ADMIN') {
+    return res.json({
+      success: true,
+      data: {
+        _id: user.id, id: user.id,
+        name: user.name, email: user.email, role: user.role,
+        schoolId: null,
+        selectedSchool: null,
+        token: generateToken(user.id),
+      },
+    });
   }
 
+  // 3. All other roles require a school code
+  if (!schoolCode || !schoolCode.trim()) {
+    res.status(400);
+    throw new Error('School Access Code is required');
+  }
+
+  // 4. Look up the school dynamically from the database — no hardcoding
+  const school = await prisma.school.findUnique({
+    where: { code: schoolCode.trim().toUpperCase() },
+  });
+
+  if (!school) {
+    res.status(401);
+    throw new Error('Invalid School Code. Please check and try again.');
+  }
+
+  // 5. Only allow access to ACTIVE schools
+  if (school.status !== 'ACTIVE') {
+    res.status(403);
+    throw new Error('This school portal is inactive. Please contact your school administration.');
+  }
+
+  // 6. Return user + the dynamically selected school
   res.json({
     success: true,
     data: {
-      _id: user.id, // Keeping _id for frontend compatibility
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      school: user.school,
+      _id: user.id, id: user.id,
+      name: user.name, email: user.email, role: user.role,
+      // selectedSchool is the school the user chose at login time.
+      // It is NOT stored permanently on the user record — it is a session-time selection.
+      selectedSchool: {
+        id: school.id,
+        name: school.name,
+        code: school.code,
+        logo: school.logo,
+        status: school.status.toLowerCase(),
+        announcement: school.announcement || null,
+      },
       token: generateToken(user.id),
     },
   });
@@ -127,25 +150,17 @@ const getMe = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user.id },
     select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      schoolId: true,
-      phone: true,
-      status: true,
-      createdAt: true,
-      updatedAt: true,
-      school: true,
+      id: true, name: true, email: true, role: true,
+      schoolId: true, phone: true, status: true,
+      createdAt: true, updatedAt: true,
     },
   });
 
+  // NOTE: selectedSchool is NOT returned here — it is stored in localStorage
+  // on the frontend and restored from there on page refresh.
   res.json({
     success: true,
-    data: {
-        ...user,
-        _id: user.id
-    }
+    data: { ...user, _id: user.id },
   });
 });
 
@@ -175,11 +190,8 @@ const updateProfile = asyncHandler(async (req, res) => {
     res.json({
       success: true,
       data: {
-        _id: updatedUser.id,
-        id: updatedUser.id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        role: updatedUser.role,
+        _id: updatedUser.id, id: updatedUser.id,
+        name: updatedUser.name, email: updatedUser.email, role: updatedUser.role,
         token: generateToken(updatedUser.id),
       },
     });
@@ -189,9 +201,4 @@ const updateProfile = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = {
-  register,
-  login,
-  getMe,
-  updateProfile,
-};
+module.exports = { register, login, getMe, updateProfile };

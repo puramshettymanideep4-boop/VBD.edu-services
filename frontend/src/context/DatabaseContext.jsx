@@ -121,30 +121,45 @@ export const DatabaseProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [dbLoading, setDbLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = async (schoolId) => {
     try {
       setDbLoading(true);
-      
+
       const token = localStorage.getItem('vbt_token');
 
-      // Public APIs
+      // Resolve school from localStorage if not passed explicitly
+      const effectiveSchoolId = schoolId || (() => {
+        try { return JSON.parse(localStorage.getItem('vbt_selected_school'))?.id; } catch { return null; }
+      })();
+
+      // Products URL — include ?schoolId= when a school is selected
+      const productsUrl = effectiveSchoolId
+        ? `/products?schoolId=${effectiveSchoolId}`
+        : '/products';
+
       const [schoolsRes, productsRes, cmsRes] = await Promise.all([
-        api.get('/schools'),
-        api.get('/products'),
+        api.get('/schools'),        // always load all schools (needed for code verification)
+        api.get(productsUrl),       // scoped to selected school when available
         api.get('/cms')
       ]);
 
       if (schoolsRes.data.success) {
-        setSchools(schoolsRes.data.data.map(s => ({ ...s, id: s._id })));
+        setSchools(schoolsRes.data.data.map(s => ({ ...s, id: s._id || s.id })));
       }
       if (productsRes.data.success) {
-        setProducts(productsRes.data.data.map(p => ({ ...p, id: p._id, status: p.stock > 0 ? 'in-stock' : 'out-of-stock' })));
+        setProducts(productsRes.data.data.map(p => ({
+          ...p,
+          id: p._id || p.id,
+          schoolId: p.schoolId,   // plain string UUID
+          school: p.school || null,
+          status: p.stock > 0 ? 'in-stock' : 'out-of-stock'
+        })));
       }
       if (cmsRes.data.success && cmsRes.data.data) {
         setCmsContent({ ...INITIAL_CMS, ...cmsRes.data.data });
       }
 
-      // Protected APIs (Only if logged in)
+      // Protected APIs (only if logged in)
       if (token) {
         try {
           const [ordersRes, notifRes] = await Promise.all([
@@ -152,22 +167,26 @@ export const DatabaseProvider = ({ children }) => {
             api.get('/notifications')
           ]);
           if (ordersRes.data.success) {
-            setOrders(ordersRes.data.data.map(o => ({ ...o, id: o._id, trackingNumber: `VBD-${o._id.toString().substring(0,6)}`, date: o.createdAt, status: o.orderStatus.toLowerCase() })));
+            setOrders(ordersRes.data.data.map(o => ({
+              ...o, id: o._id || o.id,
+              trackingNumber: `VBD-${(o._id || o.id).toString().substring(0, 6)}`,
+              date: o.createdAt,
+              status: o.orderStatus.toLowerCase()
+            })));
           }
           if (notifRes.data.success) {
-            setNotifications(notifRes.data.data.map(n => ({ ...n, id: n._id, date: n.createdAt })));
+            setNotifications(notifRes.data.data.map(n => ({ ...n, id: n._id || n.id, date: n.createdAt })));
           }
         } catch (authErr) {
           console.warn('Could not fetch protected data', authErr);
         }
       }
-      
-      // Load contact requests from local storage (mock feature)
+
       const localContacts = localStorage.getItem('vbt_contact_requests');
       if (localContacts) {
         setContactRequests(JSON.parse(localContacts));
       }
-      
+
     } catch (err) {
       console.error('Failed to fetch data from backend', err);
     } finally {
