@@ -276,32 +276,7 @@ export const AdminDashboard = ({ onNavigate }) => {
                   ))}
                 </div>
 
-                {/* Revenue bar chart */}
-                <div style={{ ...gc, padding: '24px', marginBottom: '24px' }}>
-                  <h3 style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '1.05rem', color: 'var(--text-primary)', marginBottom: '20px' }}>Monthly Revenue Growth Chart (₹)</h3>
-                  <div style={{
-                    height: '180px', display: 'flex', alignItems: 'flex-end', gap: '16px',
-                    borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '0 10px 0',
-                  }}>
-                    {[
-                      { label: 'Jan', val: '$4,200', h: 50 }, { label: 'Feb', val: '$5,800', h: 70 },
-                      { label: 'Mar', val: '$7,100', h: 90 }, { label: 'Apr', val: '$8,900', h: 110 },
-                      { label: 'May', val: '$11,400', h: 140 },
-                    ].map(bar => (
-                      <div key={bar.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{bar.val}</span>
-                        <div style={{
-                          width: '100%', height: `${bar.h}px`,
-                          background: 'linear-gradient(to top, var(--accent-primary), rgba(200,169,110,0.35))',
-                          borderRadius: '4px 4px 0 0',
-                          transition: 'height 1s ease',
-                          boxShadow: '0 0 10px rgba(200,169,110,0.15)',
-                        }} />
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>{bar.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
 
                 {/* School breakdown */}
                 <div style={{ ...gc, padding: '24px' }}>
