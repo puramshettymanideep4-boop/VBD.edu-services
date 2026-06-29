@@ -1,4 +1,4 @@
-const Product = require('../models/Product');
+const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 
 // @desc    Get all products
@@ -10,58 +10,98 @@ const getProducts = asyncHandler(async (req, res) => {
 
   if (schoolId) query.schoolId = schoolId;
   if (category) query.category = category;
-  if (search) query.name = { $regex: search, $options: 'i' };
+  if (search) query.name = { contains: search, mode: 'insensitive' };
 
-  const products = await Product.find(query).populate('schoolId', 'name code');
-  res.json({ success: true, count: products.length, data: products });
+  const products = await prisma.product.findMany({
+    where: query,
+    include: {
+      school: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      }
+    }
+  });
+  
+  // Add _id alias for frontend compatibility
+  const formattedProducts = products.map(p => ({
+    ...p,
+    _id: p.id,
+    schoolId: p.school ? { _id: p.school.id, name: p.school.name, code: p.school.code } : null
+  }));
+
+  res.json({ success: true, count: formattedProducts.length, data: formattedProducts });
 });
 
 // @desc    Get single product
 // @route   GET /api/products/:id
 // @access  Public
 const getProductById = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id).populate('schoolId', 'name code');
+  const product = await prisma.product.findUnique({
+    where: { id: req.params.id },
+    include: {
+      school: {
+        select: {
+          id: true,
+          name: true,
+          code: true
+        }
+      }
+    }
+  });
+
   if (!product) {
     res.status(404);
     throw new Error('Product not found');
   }
-  res.json({ success: true, data: product });
+
+  const formattedProduct = {
+    ...product,
+    _id: product.id,
+    schoolId: product.school ? { _id: product.school.id, name: product.school.name, code: product.school.code } : null
+  };
+
+  res.json({ success: true, data: formattedProduct });
 });
 
 // @desc    Create product
 // @route   POST /api/products
 // @access  Private/Admin
 const createProduct = asyncHandler(async (req, res) => {
-  const product = await Product.create(req.body);
-  res.status(201).json({ success: true, data: product });
+  const product = await prisma.product.create({ data: req.body });
+  res.status(201).json({ success: true, data: { ...product, _id: product.id } });
 });
 
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
 const updateProduct = asyncHandler(async (req, res) => {
-  let product = await Product.findById(req.params.id);
-  if (!product) {
+  const productExists = await prisma.product.findUnique({ where: { id: req.params.id } });
+  if (!productExists) {
     res.status(404);
     throw new Error('Product not found');
   }
-  product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
+  
+  const product = await prisma.product.update({
+    where: { id: req.params.id },
+    data: req.body,
   });
-  res.json({ success: true, data: product });
+  res.json({ success: true, data: { ...product, _id: product.id } });
 });
 
 // @desc    Delete product
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 const deleteProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
-  if (!product) {
+  const productExists = await prisma.product.findUnique({ where: { id: req.params.id } });
+  if (!productExists) {
     res.status(404);
     throw new Error('Product not found');
   }
-  await product.deleteOne();
+  
+  await prisma.product.delete({ where: { id: req.params.id } });
   res.json({ success: true, data: {} });
 });
 

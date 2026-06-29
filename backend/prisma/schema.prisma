@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(PARENT)
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  phone     String?
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  orders        Order[]
+  notifications Notification[]
+}
+
+enum Role {
+  VBT_SUPER_ADMIN
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  PARENT
+  STUDENT
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+}
+
+model School {
+  id             String       @id @default(uuid())
+  name           String
+  code           String       @unique
+  logo           String       @default("school")
+  address        String?
+  contactEmail   String?
+  contactPhone   String?
+  principalName  String?
+  announcement   String?
+  status         SchoolStatus @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  users    User[]
+  products Product[]
+  orders   Order[]
+}
+
+enum SchoolStatus {
+  ACTIVE
+  DEACTIVATED
+  ARCHIVED
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  name        String
+  description String?
+  category    Category
+  image       String   @default("book-open")
+  price       Float
+  stock       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+enum Category {
+  Books
+  School_Bags @map("School Bags")
+  Uniforms
+  Stationery
+  Educational_Kits @map("Educational Kits")
+  Learning_Materials @map("Learning Materials")
+  Other_Educational_Materials @map("Other Educational Materials")
+  Support
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  schoolId        String
+  school          School      @relation(fields: [schoolId], references: [id])
+  totalAmount     Float
+  paymentStatus   PaymentStatus @default(PENDING)
+  orderStatus     OrderStatus   @default(PENDING)
+  
+  // Shipping Address as JSON
+  shippingAddress Json
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  orderItems      OrderItem[]
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  name      String
+  quantity  Int
+  price     Float
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum NotificationType {
+  EMAIL @map("email")
+  SMS @map("sms")
+  WHATSAPP @map("whatsapp")
+  SYSTEM @map("system")
+}
+
+model CMS {
+  id                  String   @id @default(uuid())
+  homepageTitle       String
+  homepageDescription String
+  bannerImage         String   @default("default-banner.jpg")
+  aboutContent        String?
+  missionContent      String?
+  visionContent       String?
+  contactContent      String?
+  
+  heroTitle           String?
+  heroSubtitle        String?
+  missionText         String?
+  visionText          String?
+  statsSchools        Int?
+  statsStudents       Int?
+  statsProducts       Int?
+  statsOrders         Int?
+  testimonials        Json?
+  faqs                Json?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

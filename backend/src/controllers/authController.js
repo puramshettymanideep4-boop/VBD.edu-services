@@ -1,7 +1,7 @@
-const User = require('../models/User');
-const School = require('../models/School');
+const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -16,7 +16,7 @@ const register = asyncHandler(async (req, res) => {
   const { name, email, password, role, schoolCode, phone } = req.body;
 
   // Check if user exists
-  const userExists = await User.findOne({ email });
+  const userExists = await prisma.user.findUnique({ where: { email } });
   if (userExists) {
     res.status(400);
     throw new Error('User already exists');
@@ -25,34 +25,41 @@ const register = asyncHandler(async (req, res) => {
   let schoolId = null;
 
   // Validate school code if provided
-  if (schoolCode && role !== 'SUPER_ADMIN') {
-    const school = await School.findOne({ code: schoolCode.toUpperCase() });
+  if (schoolCode && role !== 'SUPER_ADMIN' && role !== 'VBT_SUPER_ADMIN') {
+    const school = await prisma.school.findUnique({ where: { code: schoolCode.toUpperCase() } });
     if (!school) {
       res.status(400);
       throw new Error('Invalid school code');
     }
-    schoolId = school._id;
+    schoolId = school.id;
   }
 
-  const user = await User.create({
-    name,
-    email,
-    password,
-    role: role || 'PARENT',
-    schoolId,
-    phone,
+  // Hash password
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'PARENT',
+      schoolId,
+      phone,
+    },
   });
 
   if (user) {
     res.status(201).json({
       success: true,
       data: {
-        _id: user._id,
+        _id: user.id, // Keeping _id for frontend compatibility
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         schoolId: user.schoolId,
-        token: generateToken(user._id),
+        token: generateToken(user.id),
       },
     });
   } else {
@@ -67,14 +74,17 @@ const register = asyncHandler(async (req, res) => {
 const login = asyncHandler(async (req, res) => {
   const { email, password, schoolCode } = req.body;
 
-  const user = await User.findOne({ email }).select('+password').populate('schoolId');
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { school: true },
+  });
 
   if (!user) {
     res.status(401);
     throw new Error('Invalid credentials');
   }
 
-  const isMatch = await user.matchPassword(password);
+  const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
     res.status(401);
@@ -88,8 +98,7 @@ const login = asyncHandler(async (req, res) => {
       throw new Error('School Access Code is required');
     }
     
-    // user.schoolId might be populated
-    const userSchoolCode = user.schoolId ? user.schoolId.code : null;
+    const userSchoolCode = user.school ? user.school.code : null;
     
     if (schoolCode.toUpperCase() !== userSchoolCode) {
       res.status(401);
@@ -100,12 +109,13 @@ const login = asyncHandler(async (req, res) => {
   res.json({
     success: true,
     data: {
-      _id: user._id,
+      _id: user.id, // Keeping _id for frontend compatibility
+      id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-      school: user.schoolId,
-      token: generateToken(user._id),
+      school: user.school,
+      token: generateToken(user.id),
     },
   });
 });
@@ -114,11 +124,28 @@ const login = asyncHandler(async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).populate('schoolId');
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.id },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      schoolId: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      school: true,
+    },
+  });
 
   res.json({
     success: true,
-    data: user,
+    data: {
+        ...user,
+        _id: user.id
+    }
   });
 });
 
@@ -126,27 +153,34 @@ const getMe = asyncHandler(async (req, res) => {
 // @route   PUT /api/auth/profile
 // @access  Private
 const updateProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
 
   if (user) {
-    user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
-    user.phone = req.body.phone || user.phone;
+    const dataToUpdate = {
+      name: req.body.name || user.name,
+      email: req.body.email || user.email,
+      phone: req.body.phone || user.phone,
+    };
 
     if (req.body.password) {
-      user.password = req.body.password;
+      const salt = await bcrypt.genSalt(10);
+      dataToUpdate.password = await bcrypt.hash(req.body.password, salt);
     }
 
-    const updatedUser = await user.save();
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user.id },
+      data: dataToUpdate,
+    });
 
     res.json({
       success: true,
       data: {
-        _id: updatedUser._id,
+        _id: updatedUser.id,
+        id: updatedUser.id,
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
-        token: generateToken(updatedUser._id),
+        token: generateToken(updatedUser.id),
       },
     });
   } else {

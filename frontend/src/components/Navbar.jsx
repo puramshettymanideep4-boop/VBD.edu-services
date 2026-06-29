@@ -289,8 +289,10 @@ const Navbar = ({ onNavigate, currentPage, cartCount }) => {
         padding: '24px',
         display: 'flex', flexDirection: 'column', gap: '20px',
         zIndex: 99,
+        opacity: mobileMenuOpen ? 1 : 0,
+        pointerEvents: mobileMenuOpen ? 'auto' : 'none',
         transform: mobileMenuOpen ? 'translateY(0)' : 'translateY(-120%)',
-        transition: 'transform 0.4s cubic-bezier(0.16,1,0.3,1)',
+        transition: 'all 0.4s cubic-bezier(0.16,1,0.3,1)',
       }}>
         {!currentSchoolPortal ? (
           <>

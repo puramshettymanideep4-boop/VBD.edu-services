@@ -1,4 +1,4 @@
-const Order = require('../models/Order');
+const prisma = require('../config/prisma');
 const asyncHandler = require('../utils/asyncHandler');
 
 // @desc    Create new order
@@ -12,16 +12,40 @@ const createOrder = asyncHandler(async (req, res) => {
     throw new Error('No order items');
   }
 
-  const order = new Order({
-    userId: req.user._id,
-    schoolId,
-    products,
-    totalAmount,
-    shippingAddress,
+  // Nested create in Prisma for orderItems
+  const order = await prisma.order.create({
+    data: {
+      userId: req.user.id,
+      schoolId,
+      totalAmount,
+      shippingAddress: shippingAddress,
+      orderItems: {
+        create: products.map(p => ({
+          productId: p.product,
+          name: p.name,
+          quantity: p.quantity,
+          price: p.price
+        }))
+      }
+    },
+    include: {
+      orderItems: true
+    }
   });
 
-  const createdOrder = await order.save();
-  res.status(201).json({ success: true, data: createdOrder });
+  const formattedOrder = {
+    ...order,
+    _id: order.id,
+    products: order.orderItems.map(item => ({
+      product: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      _id: item.id
+    }))
+  };
+
+  res.status(201).json({ success: true, data: formattedOrder });
 });
 
 // @desc    Get all orders
@@ -30,36 +54,78 @@ const createOrder = asyncHandler(async (req, res) => {
 const getOrders = asyncHandler(async (req, res) => {
   let query = {};
   
-  // If not super admin, restrict view
   if (req.user.role === 'PARENT' || req.user.role === 'STUDENT') {
-    query.userId = req.user._id;
+    query.userId = req.user.id;
   } else if (req.user.role === 'SCHOOL_ADMIN') {
     query.schoolId = req.user.schoolId;
   }
 
-  const orders = await Order.find(query).populate('userId', 'name email').populate('schoolId', 'name code');
-  res.json({ success: true, count: orders.length, data: orders });
+  const orders = await prisma.order.findMany({
+    where: query,
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      school: { select: { id: true, name: true, code: true } },
+      orderItems: true
+    }
+  });
+
+  const formattedOrders = orders.map(order => ({
+    ...order,
+    _id: order.id,
+    userId: order.user ? { _id: order.user.id, name: order.user.name, email: order.user.email } : null,
+    schoolId: order.school ? { _id: order.school.id, name: order.school.name, code: order.school.code } : null,
+    products: order.orderItems.map(item => ({
+      product: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      _id: item.id
+    }))
+  }));
+
+  res.json({ success: true, count: formattedOrders.length, data: formattedOrders });
 });
 
 // @desc    Get order by ID
 // @route   GET /api/orders/:id
 // @access  Private
 const getOrderById = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id).populate('userId', 'name email').populate('schoolId', 'name code');
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      school: { select: { id: true, name: true, code: true } },
+      orderItems: true
+    }
+  });
+
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
   }
   
-  // Auth check
   if (req.user.role === 'PARENT' || req.user.role === 'STUDENT') {
-    if (order.userId._id.toString() !== req.user._id.toString()) {
+    if (order.userId !== req.user.id) {
       res.status(403);
       throw new Error('Not authorized to view this order');
     }
   }
 
-  res.json({ success: true, data: order });
+  const formattedOrder = {
+    ...order,
+    _id: order.id,
+    userId: order.user ? { _id: order.user.id, name: order.user.name, email: order.user.email } : null,
+    schoolId: order.school ? { _id: order.school.id, name: order.school.name, code: order.school.code } : null,
+    products: order.orderItems.map(item => ({
+      product: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      _id: item.id
+    }))
+  };
+
+  res.json({ success: true, data: formattedOrder });
 });
 
 // @desc    Update order status
@@ -67,17 +133,19 @@ const getOrderById = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { orderStatus } = req.body;
-  const order = await Order.findById(req.params.id);
+  const orderExists = await prisma.order.findUnique({ where: { id: req.params.id } });
 
-  if (!order) {
+  if (!orderExists) {
     res.status(404);
     throw new Error('Order not found');
   }
 
-  order.orderStatus = orderStatus;
-  const updatedOrder = await order.save();
+  const updatedOrder = await prisma.order.update({
+    where: { id: req.params.id },
+    data: { orderStatus }
+  });
 
-  res.json({ success: true, data: updatedOrder });
+  res.json({ success: true, data: { ...updatedOrder, _id: updatedOrder.id } });
 });
 
 module.exports = { createOrder, getOrders, getOrderById, updateOrderStatus };

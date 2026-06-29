@@ -1,73 +1,147 @@
-# React + TypeScript + Vite
+# VBD Education Services — Full Stack Portal
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A multi-school e-commerce platform for managing school uniforms, books, and educational supplies. Built with React, Node.js/Express, and PostgreSQL (Prisma).
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
 
-## React Compiler
+| Layer | Technology |
+|---|---|
+| Frontend | React 19, Vite, Tailwind CSS, Axios |
+| Backend | Node.js, Express 5, Prisma ORM |
+| Database | PostgreSQL (Neon cloud) |
+| Auth | JWT + bcrypt |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Project Structure
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+VBD/
+├── frontend/          # React + Vite frontend
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/  # Axios API client
+│   │   └── context/
+│   └── .env.example
+├── backend/           # Express + Prisma backend
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   ├── config/
+│   │   └── utils/
+│   ├── prisma/
+│   │   └── schema.prisma
+│   └── .env.example
+├── docker-compose.yml
+└── package.json       # Root monorepo scripts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Quick Start
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+- Node.js 18+
+- A PostgreSQL database (e.g. [Neon](https://neon.tech) — free tier works)
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/YOUR_USERNAME/VBD.git
+cd VBD
 ```
+
+### 2. Set up Backend environment
+```bash
+cp backend/.env.example backend/.env
+# Edit backend/.env and fill in your DATABASE_URL and JWT_SECRET
+```
+
+### 3. Set up Frontend environment
+```bash
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env — set VITE_API_URL if using a remote backend
+```
+
+### 4. Install dependencies
+```bash
+npm install   # installs root + frontend + backend via postinstall
+```
+
+### 5. Set up the database
+```bash
+cd backend
+npx prisma migrate deploy   # apply migrations
+npx prisma generate         # generate Prisma Client
+npm run seed                # seed demo data (optional)
+cd ..
+```
+
+### 6. Run locally
+```bash
+npm run dev           # starts both backend (:5000) and frontend (:5173)
+# or separately:
+npm run dev:backend
+npm run dev:frontend
+```
+
+---
+
+## Environment Variables
+
+### Backend (`backend/.env`)
+```env
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=postgresql://<user>:<password>@<host>/<database>?sslmode=require
+JWT_SECRET=your_strong_jwt_secret_here
+JWT_EXPIRE=30d
+```
+
+### Frontend (`frontend/.env`)
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/api/auth/register` | Register user | Public |
+| POST | `/api/auth/login` | Login | Public |
+| GET | `/api/auth/me` | Get current user | 🔒 JWT |
+| GET | `/api/schools` | List all schools | Public |
+| GET | `/api/products` | List products | Public |
+| POST | `/api/orders` | Create order | 🔒 JWT |
+| GET | `/api/orders` | List orders | 🔒 JWT |
+| GET | `/api/cms` | CMS content | Public |
+
+---
+
+## Database Schema
+
+Models: `User`, `School`, `Product`, `Order`, `OrderItem`, `Notification`, `CMS`
+
+Run `npx prisma studio` inside the `backend/` folder to browse your database visually.
+
+---
+
+## Roles
+
+| Role | Access |
+|---|---|
+| `VBT_SUPER_ADMIN` | Full access to all schools |
+| `SUPER_ADMIN` | School group admin |
+| `SCHOOL_ADMIN` | Manages own school |
+| `PARENT` / `STUDENT` | Browse & order products |
+
+---
+
+## License
+
+MIT
