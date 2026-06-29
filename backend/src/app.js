@@ -23,6 +23,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://vbd-edu-services.onrender.com',
+  'https://vbd-edu-services.vercel.app',
 ];
 
 // Add any extra frontend URL set via env (e.g. Vercel deployment URL)
