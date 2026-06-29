@@ -558,8 +558,8 @@ export const Homepage = ({ onNavigate }) => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
-            {schools.filter(s => s.status !== 'archived').map((school, idx) => {
-              const isActive = school.status === 'active';
+            {schools.filter(s => s.status?.toLowerCase() !== 'archived').map((school, idx) => {
+              const isActive = school.status?.toLowerCase() === 'active';
               return (
                 <ThreeDCard
                   key={school.id}

@@ -55,7 +55,7 @@ const StatusBadge = ({ status }) => {
     resolved:    { bg: 'rgba(74,222,128,0.08)',  color: 'var(--success)', border: 'rgba(74,222,128,0.25)' },
     'in-progress': { bg: 'rgba(251,191,36,0.08)', color: 'var(--warning)', border: 'rgba(251,191,36,0.25)' },
   };
-  const s = map[status] || map.pending;
+  const s = map[status?.toLowerCase()] || map.pending;
   return (
     <span style={{
       padding: '3px 10px', borderRadius: '20px',
