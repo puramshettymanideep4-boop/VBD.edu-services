@@ -18,6 +18,9 @@ const INITIAL_CMS = {
   contactContent: 'contact@vbdeducation.com',
   missionText: 'Our mission is to eliminate operational overhead for schools and supply parents with high-quality, authentic, and school-verified assets through a frictionless digital experience.',
   visionText: "To build the world's most dependable and highly secure digitized educational logistics network, powering millions of learning journeys worldwide.",
+  companyAddress: 'karimnagar near railway station',
+  companyPhone: '+91 90001 43404',
+  companyEmail: 'enquiries@vbdeducation.com',
   testimonials: [
     { id: 't1', name: 'Dr. Sarah Jenkins', role: 'Principal', schoolName: 'Oakridge Academy', content: 'VBD transformed our uniform supply chain completely.' }
   ],
