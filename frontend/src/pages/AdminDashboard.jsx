@@ -426,16 +426,16 @@ export const AdminDashboard = ({ onNavigate }) => {
                       <input type="number" value={prodStock} onChange={(e) => setProdStock(Number(e.target.value))} placeholder="20" className="form-control" required />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Catalog Graphic Icon</label>
-                      <select value={prodImage} onChange={(e) => setProdImage(e.target.value)} className="form-control">
-                        <option value="book-open">Book / Textbooks</option>
-                        <option value="backpack">Backpack / Bags</option>
-                        <option value="shirt">Shirt / Blazer / Dress</option>
-                        <option value="pen-tool">Stationery Packs</option>
-                        <option value="flask">Experiment Tube Kits</option>
-                        <option value="compass">Research Maps / Atlas</option>
-                      </select>
+                      <label className="form-label">Product Image URL / Graphic Icon</label>
+                      <input
+                        type="text"
+                        value={prodImage}
+                        onChange={(e) => setProdImage(e.target.value)}
+                        placeholder="e.g. Unsplash URL or book-open"
+                        className="form-control"
+                      />
                     </div>
+
                     <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '4px' }}>
                       {editingProduct && (
                         <button type="button" className="btn btn-secondary" onClick={() => { setEditingProduct(null); setProdName(''); setProdDesc(''); setProdPrice(0); setProdStock(0); }}>Cancel</button>

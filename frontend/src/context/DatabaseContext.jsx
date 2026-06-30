@@ -46,7 +46,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: `Complete curriculum textbook set for the current grade, approved by the ${schoolName} academic board. Includes all core subjects: Mathematics, Sciences, Social Studies, English, and Languages.`,
       price: 120 + Math.floor(Math.random() * 30),
       category: 'Books',
-      image: 'book-open',
+      image: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=600&q=80',
       stock: 45,
       status: 'in-stock'
     },
@@ -57,7 +57,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: 'Ergonomically designed durable backpack with padded lumbar support, heavy-duty zippers, water-resistant layers, and customized branding.',
       price: 45 + Math.floor(Math.random() * 15),
       category: 'School Bags',
-      image: 'backpack',
+      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80',
       stock: 12,
       status: 'in-stock'
     },
@@ -68,7 +68,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: 'Premium cotton-blend standard uniform set. Includes 2 formal shirts, 2 pairs of trousers/skirts, 1 blazer, and 1 school tie. Breathable fabric designed for all-day comfort.',
       price: 75 + Math.floor(Math.random() * 20),
       category: 'Uniforms',
-      image: 'shirt',
+      image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80',
       stock: 30,
       status: 'in-stock'
     },
@@ -79,7 +79,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: 'Comprehensive stationary pack featuring high-grade notebooks, sketchpads, ballpoint and gel pens, geometric compass boxes, graphite pencils, and erasers.',
       price: 25 + Math.floor(Math.random() * 10),
       category: 'Stationery',
-      image: 'pen-tool',
+      image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80',
       stock: 80,
       status: 'in-stock'
     },
@@ -90,7 +90,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: 'Interactive experiment package with electronics micro-breadboard components, chemical test tubes, lens assemblies, and simple robotics modules to support hands-on learning.',
       price: 55 + Math.floor(Math.random() * 15),
       category: 'Educational Kits',
-      image: 'flask',
+      image: 'https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&w=600&q=80',
       stock: 5,
       status: 'in-stock'
     },
@@ -101,7 +101,7 @@ const createMockProducts = (schoolId, schoolName) => {
       description: 'High-definition full-color geography and history resource customized with the school syllabus, featuring regional maps and astronomical indexes.',
       price: 30 + Math.floor(Math.random() * 10),
       category: 'Learning Materials',
-      image: 'compass',
+      image: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=600&q=80',
       stock: 18,
       status: 'in-stock'
     }

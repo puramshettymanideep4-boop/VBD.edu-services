@@ -41,17 +41,17 @@ const importData = async () => {
     // Insert Products
     await prisma.product.createMany({
       data: [
-        { schoolId: kakatiya.id, name: 'Math Textbook Vol 1', category: 'Books', price: 25, stock: 100, description: 'CBSE approved Math textbook for Class 10.' },
-        { schoolId: kakatiya.id, name: 'Science Experiment Kit', category: 'Educational_Kits', price: 45, stock: 50, description: 'Complete physics & chemistry experiment kit.' },
-        { schoolId: kakatiya.id, name: 'Ergonomic School Bag', category: 'School_Bags', price: 30, stock: 200, description: 'Spine-friendly orthopedic carrier.' },
-        { schoolId: kakatiya.id, name: 'Geometry Set Deluxe', category: 'Stationery', price: 8, stock: 300, description: 'Precision instruments, compass & ruler set.' },
-        { schoolId: abc.id, name: 'ABC School Uniform Tie', category: 'Uniforms', price: 15, stock: 150, description: 'Official ABC School uniform tie.' },
-        { schoolId: abc.id, name: 'ABC English Workbook', category: 'Books', price: 28, stock: 80, description: 'English language workbook for Grade 8.' },
-        { schoolId: abc.id, name: 'ABC Notebook Bundle', category: 'Stationery', price: 12, stock: 250, description: 'Pack of 10 ruled + 2 graph notebooks.' },
-        { schoolId: sunshine.id, name: 'Sunshine Uniform Set', category: 'Uniforms', price: 55, stock: 120, description: 'Full uniform — shirt, trousers, tie.' },
-        { schoolId: sunshine.id, name: 'Atlas & Maps Bundle', category: 'Learning_Materials', price: 18, stock: 90, description: 'Political & physical world atlas set.' },
-        { schoolId: future.id, name: 'STEM Robotics Kit', category: 'Educational_Kits', price: 120, stock: 30, description: 'Build & program your own robot car.' },
-        { schoolId: future.id, name: 'Electronics Starter Kit', category: 'Educational_Kits', price: 65, stock: 45, description: 'Breadboard, LEDs, resistors & more.' },
+        { schoolId: kakatiya.id, name: 'Math Textbook Vol 1', category: 'Books', price: 25, stock: 100, description: 'CBSE approved Math textbook for Class 10.', image: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: kakatiya.id, name: 'Science Experiment Kit', category: 'Educational_Kits', price: 45, stock: 50, description: 'Complete physics & chemistry experiment kit.', image: 'https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: kakatiya.id, name: 'Ergonomic School Bag', category: 'School_Bags', price: 30, stock: 200, description: 'Spine-friendly orthopedic carrier.', image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: kakatiya.id, name: 'Geometry Set Deluxe', category: 'Stationery', price: 8, stock: 300, description: 'Precision instruments, compass & ruler set.', image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: abc.id, name: 'ABC School Uniform Tie', category: 'Uniforms', price: 15, stock: 150, description: 'Official ABC School uniform tie.', image: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: abc.id, name: 'ABC English Workbook', category: 'Books', price: 28, stock: 80, description: 'English language workbook for Grade 8.', image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: abc.id, name: 'ABC Notebook Bundle', category: 'Stationery', price: 12, stock: 250, description: 'Pack of 10 ruled + 2 graph notebooks.', image: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: sunshine.id, name: 'Sunshine Uniform Set', category: 'Uniforms', price: 55, stock: 120, description: 'Full uniform — shirt, trousers, tie.', image: 'https://images.unsplash.com/photo-1622473590743-f38b4bce07be?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: sunshine.id, name: 'Atlas & Maps Bundle', category: 'Learning_Materials', price: 18, stock: 90, description: 'Political & physical world atlas set.', image: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: future.id, name: 'STEM Robotics Kit', category: 'Educational_Kits', price: 120, stock: 30, description: 'Build & program your own robot car.', image: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=600&q=80' },
+        { schoolId: future.id, name: 'Electronics Starter Kit', category: 'Educational_Kits', price: 65, stock: 45, description: 'Breadboard, LEDs, resistors & more.', image: 'https://images.unsplash.com/photo-1517059224940-d4af9eec41b7?auto=format&fit=crop&w=600&q=80' },
       ]
     });
 

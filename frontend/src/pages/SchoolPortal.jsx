@@ -295,8 +295,23 @@ export const SchoolPortal = ({
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         position: 'relative',
                         borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        overflow: 'hidden',
                       }}>
-                        {getCategoryIcon(prod.category, 44)}
+                        {prod.image && (prod.image.startsWith('http') || prod.image.startsWith('/')) && (
+                          <img
+                            src={prod.image}
+                            alt={prod.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              const fallback = e.target.nextSibling;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                        )}
+                        <div className="fallback-icon" style={{ display: prod.image && (prod.image.startsWith('http') || prod.image.startsWith('/')) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                          {getCategoryIcon(prod.category, 44)}
+                        </div>
 
                         {/* Category badge */}
                         <span style={{
@@ -304,6 +319,7 @@ export const SchoolPortal = ({
                           fontSize: '0.67rem', fontWeight: 700, letterSpacing: '0.5px',
                           background: 'rgba(200,169,110,0.12)', border: '1px solid rgba(200,169,110,0.25)',
                           color: 'var(--accent-primary)', padding: '3px 10px', borderRadius: '20px',
+                          zIndex: 2,
                         }}>
                           {prod.category}
                         </span>
@@ -317,6 +333,7 @@ export const SchoolPortal = ({
                           color: isOut ? 'var(--danger)' : isLow ? 'var(--warning)' : 'var(--success)',
                           padding: '3px 10px', borderRadius: '20px',
                           display: 'flex', alignItems: 'center', gap: '4px',
+                          zIndex: 2,
                         }}>
                           <span style={{
                             width: '5px', height: '5px', borderRadius: '50%',
@@ -430,9 +447,25 @@ export const SchoolPortal = ({
                             width: '52px', height: '52px', borderRadius: '12px', flexShrink: 0,
                             background: 'rgba(200,169,110,0.06)', border: '1px solid rgba(200,169,110,0.15)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            position: 'relative', overflow: 'hidden',
                           }}>
-                            {getCategoryIcon(item.product.category, 22)}
+                            {item.product.image && (item.product.image.startsWith('http') || item.product.image.startsWith('/')) && (
+                              <img
+                                src={item.product.image}
+                                alt={item.product.name}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0 }}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  const fallback = e.target.nextSibling;
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                              />
+                            )}
+                            <div className="fallback-icon" style={{ display: item.product.image && (item.product.image.startsWith('http') || item.product.image.startsWith('/')) ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                              {getCategoryIcon(item.product.category, 22)}
+                            </div>
                           </div>
+
                           <div style={{ flex: 1 }}>
                             <h4 style={{ color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 600, fontFamily: 'var(--font-body)', marginBottom: '2px' }}>{item.product.name}</h4>
                             <span style={{ color: 'var(--accent-primary)', fontSize: '0.82rem' }}>₹{item.product.price} each</span>
