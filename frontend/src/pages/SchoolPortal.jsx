@@ -114,17 +114,21 @@ export const SchoolPortal = ({
 
   const cartTotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
-  const handleCheckoutSubmit = (e) => {
+  const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
     if (!shippingDetails.name || !shippingDetails.email || !shippingDetails.address) return;
-    const newOrder = createOrder({
-      schoolId: currentSchoolPortal.id, schoolName: currentSchoolPortal.name,
-      userId: user?.id || 'guest', userName: shippingDetails.name,
-      items: cart.map(item => ({ productId: item.product.id, name: item.product.name, price: item.product.price, quantity: item.quantity, image: item.product.image })),
-      totalAmount: cartTotal,
-      shippingAddress: { name: shippingDetails.name, email: shippingDetails.email, phone: shippingDetails.phone || 'N/A', address: shippingDetails.address, city: shippingDetails.city || 'N/A', zip: shippingDetails.zip || 'N/A' }
-    });
-    setPlacedOrder(newOrder); onClearCart(); setCheckoutStep('success');
+    try {
+      const newOrder = await createOrder({
+        schoolId: currentSchoolPortal.id, schoolName: currentSchoolPortal.name,
+        userId: user?.id || 'guest', userName: shippingDetails.name,
+        items: cart.map(item => ({ productId: item.product.id, name: item.product.name, price: item.product.price, quantity: item.quantity, image: item.product.image })),
+        totalAmount: cartTotal,
+        shippingAddress: { name: shippingDetails.name, email: shippingDetails.email, phone: shippingDetails.phone || 'N/A', address: shippingDetails.address, city: shippingDetails.city || 'N/A', zip: shippingDetails.zip || 'N/A' }
+      });
+      setPlacedOrder(newOrder); onClearCart(); setCheckoutStep('success');
+    } catch (err) {
+      console.error('Checkout failed', err);
+    }
   };
 
   const getStatusIcon = (status) => {

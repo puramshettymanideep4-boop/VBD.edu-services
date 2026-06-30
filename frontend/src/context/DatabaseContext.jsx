@@ -112,6 +112,35 @@ const INITIAL_PRODUCTS = INITIAL_SCHOOLS.flatMap(school =>
   createMockProducts(school.id, school.name)
 );
 
+const normalizeOrder = (o) => {
+  if (!o) return null;
+  const id = o.id || o._id;
+  const rawItems = o.products || o.orderItems || o.items || [];
+  const items = rawItems.map(item => ({
+    product: item.product || item.productId,
+    name: item.name,
+    quantity: item.quantity,
+    price: item.price,
+    id: item.id || item._id
+  }));
+  
+  const schoolName = o.school?.name || (o.school && typeof o.school === 'object' ? o.school.name : null) || (o.schoolId && typeof o.schoolId === 'object' ? o.schoolId.name : null) || o.schoolName || 'Partner School';
+  
+  return {
+    ...o,
+    id,
+    _id: id,
+    schoolId: o.schoolId && typeof o.schoolId === 'object' ? (o.schoolId.id || o.schoolId._id) : o.schoolId,
+    userId: o.userId && typeof o.userId === 'object' ? (o.userId.id || o.userId._id) : o.userId,
+    schoolName,
+    items,
+    products: items,
+    trackingNumber: o.trackingNumber || `VBD-${id.toString().substring(0, 6)}`,
+    date: o.createdAt || o.date,
+    status: (o.orderStatus || o.status || 'PENDING').toLowerCase()
+  };
+};
+
 export const DatabaseProvider = ({ children }) => {
   const [schools, setSchools] = useState(INITIAL_SCHOOLS);
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
@@ -167,12 +196,7 @@ export const DatabaseProvider = ({ children }) => {
             api.get('/notifications')
           ]);
           if (ordersRes.data.success) {
-            setOrders(ordersRes.data.data.map(o => ({
-              ...o, id: o._id || o.id,
-              trackingNumber: `VBD-${(o._id || o.id).toString().substring(0, 6)}`,
-              date: o.createdAt,
-              status: o.orderStatus.toLowerCase()
-            })));
+            setOrders(ordersRes.data.data.map(o => normalizeOrder(o)));
           }
           if (notifRes.data.success) {
             setNotifications(notifRes.data.data.map(n => ({ ...n, id: n._id || n.id, date: n.createdAt })));
@@ -298,7 +322,7 @@ export const DatabaseProvider = ({ children }) => {
       const res = await api.post('/orders', formattedData);
       if (res.data.success) {
         const o = res.data.data;
-        const newOrder = { ...o, id: o._id, trackingNumber: `VBD-${o._id.toString().substring(0,6)}`, date: o.createdAt, status: o.orderStatus.toLowerCase() };
+        const newOrder = normalizeOrder(o);
         setOrders(prev => [newOrder, ...prev]);
 
         // Refresh products to show updated stock
@@ -316,7 +340,7 @@ export const DatabaseProvider = ({ children }) => {
       const res = await api.put(`/orders/${id}/status`, { orderStatus: status.toUpperCase() });
       if (res.data.success) {
         const o = res.data.data;
-        setOrders(prev => prev.map(item => item.id === id ? { ...o, id: o._id, trackingNumber: `VBD-${o._id.toString().substring(0,6)}`, date: o.createdAt, status: o.orderStatus.toLowerCase() } : item));
+        setOrders(prev => prev.map(item => item.id === id ? normalizeOrder(o) : item));
       }
     } catch (err) {
       console.error(err);

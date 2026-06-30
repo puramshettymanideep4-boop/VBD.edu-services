@@ -63,13 +63,14 @@ const register = asyncHandler(async (req, res) => {
 // the correct school code — the user is NOT permanently locked to one school.
 const login = asyncHandler(async (req, res) => {
   const { email: identifier, password, schoolCode } = req.body;
+  const trimmedIdentifier = identifier ? identifier.trim() : '';
 
   // 1. Find user (check both email and name columns dynamically to support Username/Email login)
   let user = await prisma.user.findFirst({
     where: {
       OR: [
-        { email: { equals: identifier, mode: 'insensitive' } },
-        { name: { equals: identifier, mode: 'insensitive' } },
+        { email: { equals: trimmedIdentifier, mode: 'insensitive' } },
+        { name: { equals: trimmedIdentifier, mode: 'insensitive' } },
       ],
     },
     include: { school: true },
